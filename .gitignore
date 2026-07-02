@@ -4,6 +4,7 @@ node_modules/
 # build artifacts
 dist/
 coverage/
+*.tsbuildinfo
 
 # env
 .env
