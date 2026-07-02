@@ -1,0 +1,39 @@
+services:
+  mock:
+    build: ./mock-server
+    container_name: url-checker-mock
+    ports:
+      - "9000:9000"
+    networks:
+      - url-checker
+
+  backend:
+    build: ./backend
+    container_name: url-checker-backend
+    environment:
+      - PORT=4000
+      - CORS_ORIGIN=http://localhost:8080,http://localhost:5173
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mock
+    networks:
+      - url-checker
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # В prod-сборке фронт ходит в /api, который nginx проксирует на backend.
+        VITE_API_BASE_URL: /api
+    container_name: url-checker-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - url-checker
+
+networks:
+  url-checker:
+    driver: bridge

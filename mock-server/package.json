@@ -1,0 +1,11 @@
+{
+  "name": "url-checker-mock-server",
+  "version": "1.0.0",
+  "description": "HTTP mock server with predictable statuses for testing the URL checker",
+  "private": true,
+  "license": "MIT",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
