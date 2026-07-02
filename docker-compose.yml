@@ -1,12 +1,22 @@
+# Основное приложение: backend + frontend.
+# Mock-сервер вынесен в профиль `mock` и НЕ запускается по умолчанию — он нужен
+# только для тестовых данных. См. команды в корневом package.json и README.
+#
+#   Основное приложение:        docker compose up --build
+#   Вместе с mock-сервером:     docker compose --profile mock up --build
+
 services:
+  # --- Mock-сервер (только для тестов, опциональный) ---
   mock:
     build: ./mock-server
     container_name: url-checker-mock
+    profiles: [mock] # запускается только при --profile mock
     ports:
       - "9000:9000"
     networks:
       - url-checker
 
+  # --- Backend ---
   backend:
     build: ./backend
     container_name: url-checker-backend
@@ -15,11 +25,10 @@ services:
       - CORS_ORIGIN=http://localhost:8080,http://localhost:5173
     ports:
       - "4000:4000"
-    depends_on:
-      - mock
     networks:
       - url-checker
 
+  # --- Frontend (nginx: ститика + прокси /api -> backend) ---
   frontend:
     build:
       context: ./frontend

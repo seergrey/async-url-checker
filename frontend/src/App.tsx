@@ -1,27 +1,37 @@
 import { useEffect } from 'react';
-import { Alert, Col, Layout, Row, Typography, Button, Space } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Col, Layout, Row, Space, Typography } from 'antd';
+import { SyncOutlined } from '@ant-design/icons';
 import { JobForm } from './components/JobForm';
 import { JobList } from './components/JobList';
 import { JobDetailsView } from './components/JobDetails';
 import { useJobPolling } from './hooks/useJobPolling';
+import { useJobsAutoRefresh } from './hooks/useJobsAutoRefresh';
 import { useJobsStore } from './store/jobsStore';
 
 const { Header, Content } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function App() {
   const error = useJobsStore((s) => s.error);
   const clearError = useJobsStore((s) => s.clearError);
   const fetchJobs = useJobsStore((s) => s.fetchJobs);
+  const activeJobId = useJobsStore((s) => s.activeJobId);
+  const selectJob = useJobsStore((s) => s.selectJob);
+  const jobsLoading = useJobsStore((s) => s.jobsLoading);
 
-  // Запускаем поллинг активного задания (хук сам останавливается при терминальном статусе).
+  // Поллинг активного задания + авто-обновление списка + индикатор.
   useJobPolling();
+  const secondsAgo = useJobsAutoRefresh();
 
-  // При старте загружаем список заданий.
+  // При старте: грузим список и, если есть сохранённое активное задание (из
+  // localStorage после F5), подгружаем его детали.
   useEffect(() => {
     void fetchJobs();
-  }, [fetchJobs]);
+    if (activeJobId) {
+      void selectJob(activeJobId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -52,13 +62,24 @@ export default function App() {
                 }}
               >
                 <Typography.Text strong>Последние задания</Typography.Text>
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={() => fetchJobs()}
-                >
-                  Обновить
-                </Button>
+                <Space size="small">
+                  {secondsAgo !== null && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      обновлено {secondsAgo}с назад
+                    </Text>
+                  )}
+                  <Badge dot status="processing" offset={[-2, 0]}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<SyncOutlined />}
+                      loading={jobsLoading}
+                      onClick={() => fetchJobs()}
+                    >
+                      Обновить
+                    </Button>
+                  </Badge>
+                </Space>
               </div>
               <JobList />
             </Space>

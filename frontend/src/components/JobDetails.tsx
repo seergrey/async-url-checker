@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Popconfirm, Progress, Space, Spin, Typography } from 'antd';
 import { useJobsStore } from '../store/jobsStore';
 import { StatusBadge } from './StatusBadge';
@@ -5,57 +6,72 @@ import { TERMINAL_JOB_STATUSES } from '../api/types';
 import type { ColumnsType } from 'antd/es/table';
 import { Table } from 'antd';
 import type { UrlResult } from '../api/types';
+import { useNow } from '../hooks/useNow';
 
 const { Title, Text } = Typography;
-
-const columns: ColumnsType<UrlResult> = [
-  {
-    title: 'URL',
-    dataIndex: 'url',
-    key: 'url',
-    ellipsis: true,
-    render: (url: string) => (
-      <Text copyable={{ text: url }} style={{ fontSize: 13 }}>
-        {url}
-      </Text>
-    ),
-  },
-  {
-    title: 'Статус',
-    dataIndex: 'status',
-    key: 'status',
-    width: 110,
-    render: (status: UrlResult['status']) => <StatusBadge status={status} />,
-  },
-  {
-    title: 'HTTP',
-    dataIndex: 'httpStatus',
-    key: 'httpStatus',
-    width: 80,
-    render: (code?: number) =>
-      code !== undefined ? <Text code>{code}</Text> : <Text type="secondary">—</Text>,
-  },
-  {
-    title: 'Ошибка',
-    dataIndex: 'error',
-    key: 'error',
-    ellipsis: true,
-    render: (err?: string) =>
-      err ? <Text type="danger" style={{ fontSize: 12 }}>{err}</Text> : null,
-  },
-  {
-    title: 'Длительность',
-    dataIndex: 'durationMs',
-    key: 'durationMs',
-    width: 120,
-    render: (ms?: number) =>
-      ms !== undefined ? <Text type="secondary">{formatDuration(ms)}</Text> : null,
-  },
-];
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms} мс`;
   return `${(ms / 1000).toFixed(2)} с`;
+}
+
+/** Колонки таблицы URL. `now` — живое время для in_progress URL. */
+function useColumns(now: number): ColumnsType<UrlResult> {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return [
+    {
+      title: 'URL',
+      dataIndex: 'url',
+      key: 'url',
+      ellipsis: true,
+      render: (url: string) => (
+        <Text copyable={{ text: url }} style={{ fontSize: 13 }}>
+          {url}
+        </Text>
+      ),
+    },
+    {
+      title: 'Статус',
+      dataIndex: 'status',
+      key: 'status',
+      width: 110,
+      render: (status: UrlResult['status']) => <StatusBadge status={status} />,
+    },
+    {
+      title: 'HTTP',
+      dataIndex: 'httpStatus',
+      key: 'httpStatus',
+      width: 80,
+      render: (code?: number) =>
+        code !== undefined ? <Text code>{code}</Text> : <Text type="secondary">—</Text>,
+    },
+    {
+      title: 'Ошибка',
+      dataIndex: 'error',
+      key: 'error',
+      ellipsis: true,
+      render: (err?: string) =>
+        err ? <Text type="danger" style={{ fontSize: 12 }}>{err}</Text> : null,
+    },
+    {
+      title: 'Длительность',
+      dataIndex: 'durationMs',
+      key: 'durationMs',
+      width: 120,
+      render: (ms?: number, record?: UrlResult) => {
+        // Завершённые URL — показываем зафиксированную длительность.
+        if (ms !== undefined) {
+          return <Text type="secondary">{formatDuration(ms)}</Text>;
+        }
+        // in_progress URL — живой таймер от startedAt.
+        if (record?.startedAt) {
+          const elapsed = now - new Date(record.startedAt).getTime();
+          return <Text type="secondary">{formatDuration(elapsed)}</Text>;
+        }
+        return null;
+      },
+    },
+  ];
 }
 
 /** Детальная информация по активному заданию: статус, прогресс, список URL. */
@@ -63,6 +79,15 @@ export function JobDetailsView() {
   const activeJob = useJobsStore((s) => s.activeJob);
   const activeLoading = useJobsStore((s) => s.activeLoading);
   const cancelActive = useJobsStore((s) => s.cancelActive);
+
+  // Живое время — нужно только пока есть in_progress URL (для тикающего таймера).
+  const hasInProgress = activeJob?.urls.some((u) => u.status === 'in_progress') ?? false;
+  const now = useNow(hasInProgress ? 1000 : 0);
+  const columns = useColumns(now);
+
+  // Управляемый размер страницы пагинации. Без useState жёсткий pageSize
+  // сбрасывался бы обратно при каждом ре-рендере (поллинг, тики времени).
+  const [pageSize, setPageSize] = useState(20);
 
   if (activeLoading && !activeJob) {
     return (
@@ -158,7 +183,13 @@ export function JobDetailsView() {
         rowKey={(r) => r.url}
         columns={columns}
         dataSource={activeJob.urls}
-        pagination={{ pageSize: 20, size: 'small' }}
+        pagination={{
+          pageSize,
+          size: 'small',
+          showSizeChanger: true,
+          pageSizeOptions: [10, 20, 50, 100],
+          onShowSizeChange: (_current, size) => setPageSize(size),
+        }}
         size="small"
         locale={{ emptyText: 'Нет URL' }}
       />

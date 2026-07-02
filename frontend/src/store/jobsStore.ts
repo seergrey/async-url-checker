@@ -1,6 +1,9 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { jobsApi } from '../api/jobsApi';
 import type { JobDetails, JobSummary } from '../api/types';
+
+const STORAGE_KEY = 'url-checker-state';
 
 interface JobsState {
   // --- Список заданий ---
@@ -15,6 +18,8 @@ interface JobsState {
   // --- Общее ---
   error: string | null;
   submitting: boolean;
+  /** Когда последний раз обновлялся список заданий (timestamp, мс). */
+  jobsUpdatedAt: number | null;
 
   // Внутренний токен поллинга: инкрементируется при каждой смене активного
   // задания. pollActive после await сверяется с ним и игнорирует устаревшие
@@ -31,7 +36,9 @@ interface JobsState {
   clearError: () => void;
 }
 
-export const useJobsStore = create<JobsState>((set, get) => ({
+export const useJobsStore = create<JobsState>()(
+  persist(
+    (set, get) => ({
   jobs: [],
   jobsLoading: false,
   activeJobId: null,
@@ -39,6 +46,7 @@ export const useJobsStore = create<JobsState>((set, get) => ({
   activeLoading: false,
   error: null,
   submitting: false,
+  jobsUpdatedAt: null,
   _pollToken: 0,
 
   clearError: () => set({ error: null }),
@@ -48,7 +56,7 @@ export const useJobsStore = create<JobsState>((set, get) => ({
     try {
       const jobs = await jobsApi.fetchJobs();
       // Защита: если за время запроса что-то изменилось — просто сохраняем.
-      set({ jobs });
+      set({ jobs, jobsUpdatedAt: Date.now() });
     } catch (e) {
       set({ error: errorMessage(e) });
     } finally {
@@ -131,7 +139,15 @@ export const useJobsStore = create<JobsState>((set, get) => ({
       set({ error: errorMessage(e) });
     }
   },
-}));
+    }), // end of store object
+    {
+      name: STORAGE_KEY,
+      // Сохраняем только id активного задания — переживает F5.
+      // Само задание и список всегда перезагружаются с бэкенда.
+      partialize: (state) => ({ activeJobId: state.activeJobId }),
+    },
+  ), // end of persist
+); // end of create
 
 function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;

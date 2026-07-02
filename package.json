@@ -1,0 +1,21 @@
+{
+  "name": "url-checker",
+  "version": "1.0.0",
+  "description": "Сервис асинхронной проверки списка URL (NestJS + React + TypeScript)",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "comment:up": "=== Docker: запуск ===",
+    "up": "docker compose up --build",
+    "up:detached": "docker compose up -d --build",
+    "up:mock": "docker compose --profile mock up --build",
+    "up:mock:detached": "docker compose --profile mock up -d --build",
+    "stop": "docker compose down",
+    "logs": "docker compose logs -f",
+    "logs:backend": "docker compose logs -f backend",
+    "logs:frontend": "docker compose logs -f frontend",
+    "logs:mock": "docker compose logs -f mock",
+    "rebuild": "docker compose build --no-cache",
+    "clean": "docker compose down -v --rmi local"
+  }
+}

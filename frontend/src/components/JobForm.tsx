@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { App, Button, Form, Input, Space, Typography } from 'antd';
+import { ClearOutlined } from '@ant-design/icons';
 import { useJobsStore } from '../store/jobsStore';
 
 const { TextArea } = Input;
@@ -49,25 +50,39 @@ export function JobForm() {
         <TextArea
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter — отправить форму.
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              void onSubmit();
+            }
+          }}
           placeholder={
             'https://example.com\nhttps://github.com/some/repo\nhttp://localhost:9000/ok'
           }
           autoSize={{ minRows: 8, maxRows: 16 }}
         />
       </Form.Item>
-      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+      <Space style={{ width: '100%' }}>
         <Button
           type="primary"
           onClick={onSubmit}
           loading={submitting}
-          block
+          disabled={!text.trim()}
+          style={{ marginRight: 'auto' }}
         >
           Запустить проверку
         </Button>
+        <Button
+          type="default"
+          icon={<ClearOutlined />}
+          disabled={!text}
+          onClick={() => setText('')}
+        />
       </Space>
       <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
         Поддерживается http/https. До 500 URL. Проверка выполняется HTTP
-        HEAD-запросами.
+        HEAD-запросами. Отправить форму — Cmd/Ctrl+Enter.
       </Text>
     </Form>
   );
